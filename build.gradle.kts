@@ -13,8 +13,8 @@ group = "bayern.kickner"
 version = "0.0.1"
 
 application {
-    mainClass.set("bayern.kickner.client.ClientKt")
-//    mainClass.set("bayern.kickner.ApplicationKt")
+//    mainClass.set("bayern.kickner.client.ClientKt")
+    mainClass.set("bayern.kickner.ApplicationKt")
 }
 
 ktor {
