@@ -32,11 +32,11 @@ private lateinit var jumpHost: String
  * CLI Entry point for the K-Jump SSH Client.
  * Handles the main menu loop and user authentication via master token.
  */
-fun main() = runBlocking {
+fun main(args: Array<String>) = runBlocking {
     printBanner()
 
     println("Welcome to K-Jump SSH Client.")
-    login()
+    login(args.contains("--force-http"))
 
     while (true) {
         println("\n--- MAIN MENU ---")
@@ -224,20 +224,20 @@ suspend fun startSsh(server: ServerEntry, token: String) = coroutineScope {
 /**
  * Performs login to the server and retrieves the API-Token.
  */
-suspend fun login() {
+suspend fun login(forceHttp: Boolean) {
     println("\n--- LOGIN TO K-JUMP SERVER ---")
     print("User Token: ")
     val console = System.console()
     val (host, token) = (if (console != null) String(console.readPassword()) else readln()).let { input ->
         input.fromBase64().split("€")
-            .let { "http://" + it[0] + ":8090" to it[1] } //ToDo: Default muss nach der Entwicklung HTTPS sein.
+            .let { (if (forceHttp) "http://" else "https://") + it[0] + ":8090" to it[1] } //ToDo: Default muss nach der Entwicklung HTTPS sein.
     }
 
     print("TOTP Code: ")
     val totpCode = readln().trim()
     if (totpCode.toIntOrNull() == null) {
         println("Invalid TOTP Code")
-        return login()
+        return login(forceHttp)
     }
 
     val response = try {
@@ -258,6 +258,6 @@ suspend fun login() {
         println("Login successful!")
     } else {
         println("Login failed: ${response.status} - ${response.bodyAsText()}")
-        login()
+        login(forceHttp)
     }
 }
