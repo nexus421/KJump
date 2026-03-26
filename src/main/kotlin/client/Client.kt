@@ -226,11 +226,15 @@ suspend fun startSsh(server: ServerEntry, token: String) = coroutineScope {
  */
 suspend fun login(forceHttp: Boolean) {
     println("\n--- LOGIN TO K-JUMP SERVER ---")
+    if (forceHttp) println("Running in insecure HTTP mode.")
     print("User Token: ")
     val console = System.console()
     val (host, token) = (if (console != null) String(console.readPassword()) else readln()).let { input ->
-        input.fromBase64().split("€")
-            .let { (if (forceHttp) "http://" else "https://") + it[0] + ":8090" to it[1] } //ToDo: Default muss nach der Entwicklung HTTPS sein.
+        val parts = input.fromBase64().split("€")
+        val hostPart = parts[0]
+        val tokenPart = parts[1]
+        val finalHost = if (hostPart.contains(":")) hostPart else "$hostPart:8090"
+        (if (forceHttp) "http://" else "https://") + finalHost to tokenPart
     }
 
     print("TOTP Code: ")

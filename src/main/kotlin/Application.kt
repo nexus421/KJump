@@ -14,7 +14,7 @@ import org.slf4j.event.Level
  * Entry point for the K-Jump Server.
  * Initializes the embedded Ktor server with CIO engine.
  */
-fun main() {
+fun main(args: Array<String>) {
     println("""
         
         |----------------------------------------------------------|
@@ -26,9 +26,13 @@ fun main() {
 
     initLogging()
 
+    val port = args.find { it.startsWith("--port=") }?.substringAfter("=")?.toIntOrNull() ?: 8090
+
     KLogger.info("Startup") { "Starting K-Jump Server..." }
 
-    embeddedServer(CIO, port = 8090, host = "0.0.0.0", module = Application::module).start(wait = true)
+    DatabaseFactory.init(port)
+
+    embeddedServer(CIO, port = port, host = "0.0.0.0", module = Application::module).start(wait = true)
 }
 
 /**
@@ -45,7 +49,9 @@ fun Application.module() {
     configureAdministration()
     configureSerialization()
     configureRouting()
-    infoLog { "K-Jump Server is ready and listening on http://0.0.0.0:8090" }
+    val config = DatabaseFactory.systemConfigBox.all.firstOrNull()
+    val port = config?.port ?: 8090
+    infoLog { "K-Jump Server is ready and listening on http://0.0.0.0:$port" }
 }
 
 

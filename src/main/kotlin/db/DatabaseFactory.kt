@@ -37,7 +37,8 @@ object DatabaseFactory {
     /**
      * Initializes the database, sets up the storage directory, and ensures initial data.
      */
-    fun init() {
+    fun init(port: Int = 8090) {
+        if (::store.isInitialized) return
         infoLog { "Initializing Database..." }
         val dbDir = File("kjump-db")
         if (dbDir.exists().not()) {
@@ -55,8 +56,8 @@ object DatabaseFactory {
             } server entries."
         }
 
-        val hostIp = ensureConfigInitialized()
-        ensureAdminCreated(hostIp)
+        val config = ensureConfigInitialized(port)
+        ensureAdminCreated(config.globalJumpIp, config.port)
         ensureHostKeyExists()
     }
 
@@ -100,9 +101,9 @@ object DatabaseFactory {
     /**
      * Ensures the system configuration is set up (e.g. global server IP).
      *
-     * @return The global server IP or hostname.
+     * @return The system configuration.
      */
-    private fun ensureConfigInitialized(): String {
+    private fun ensureConfigInitialized(port: Int): SystemConfig {
         val configBox = store.boxFor(SystemConfig::class.java)
         if (configBox.isEmpty) {
             println("\n" + "=".repeat(60))
@@ -112,24 +113,38 @@ object DatabaseFactory {
 
             val config = SystemConfig(
                 globalJumpIp = ip,
-                apiToken = generateSecureToken()
+                apiToken = generateSecureToken(),
+                port = port
             )
             configBox.put(config)
 
-            println("Configuration saved. Global Jump IP set to: $ip")
+            println("Configuration saved. Global Jump IP set to: $ip (Port: $port)")
             println("API-Token generated and saved to database.")
             println("=".repeat(60) + "\n")
 
-            infoLog { "Global Jump Host IP set to: $ip" }
+            infoLog { "Global Jump Host IP set to: $ip (Port: $port)" }
+        } else {
+            val config = configBox.all.first()
+            if (config.port != port) {
+                println("\n" + "!".repeat(60))
+                println("WARNING: Port mismatch!")
+                println("The server was started with port $port, but the stored port is ${config.port}.")
+                println("Updating database to use port $port.")
+                println("!".repeat(60) + "\n")
+
+                infoLog { "Updating port in database from ${config.port} to $port" }
+                config.port = port
+                configBox.put(config)
+            }
         }
 
-        return configBox.all.first().globalJumpIp
+        return configBox.all.first()
     }
 
     /**
      * Creates an initial admin user if the database is empty.
      */
-    private fun ensureAdminCreated(hostIp: String) {
+    private fun ensureAdminCreated(hostIp: String, port: Int) {
         val userBox = store.boxFor(User::class.java)
         if (userBox.isEmpty) {
             infoLog { "No users found in database. Performing first-time setup..." }
@@ -149,7 +164,7 @@ object DatabaseFactory {
             println("Username: admin")
             println("Initial Token: $adminToken")
             println("TOTP Secret: $totpSecret")
-            println("Combined Token for login: ${("$hostIp€$adminToken").toBase64()}") //Used so you only need one token to login!
+            println("Combined Token for login: ${("$hostIp:$port€$adminToken").toBase64()}") //Used so you only need one token to login!
             println("This is the token you will need to login to the server.")
             println("PLEASE SAVE THIS TOKEN! You will need it to login.")
             println("=".repeat(60) + "\n")

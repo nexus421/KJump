@@ -44,7 +44,7 @@
     },
     {
       "id": "2:1403782027409071284",
-      "lastPropertyId": "3:5437331427644776520",
+      "lastPropertyId": "4:2578313667520976222",
       "name": "SystemConfig",
       "properties": [
         {
@@ -62,6 +62,11 @@
           "id": "3:5437331427644776520",
           "name": "apiToken",
           "type": 9
+        },
+        {
+          "id": "4:2578313667520976222",
+          "name": "port",
+          "type": 5
         }
       ],
       "relations": []

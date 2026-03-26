@@ -43,7 +43,8 @@ data class ServerEntryEntity(
 data class SystemConfig(
     @Id var id: Long = 0,
     var globalJumpIp: String = "",
-    var apiToken: String = ""
+    var apiToken: String = "",
+    var port: Int = 8090
 )
 
 /**
