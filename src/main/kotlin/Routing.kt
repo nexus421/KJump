@@ -40,8 +40,7 @@ fun Application.configureRouting() {
                 if (user != null) {
                     if (user.totpSecret.isNotBlank() && !Totp.verifyCode(
                             user.totpSecret,
-                            request.totpCode,
-                            window = 0
+                            request.totpCode
                         )
                     ) {
                         warnLog { "Invalid TOTP code for user: ${user.username}" }

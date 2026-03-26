@@ -59,6 +59,7 @@ object DatabaseFactory {
         val config = ensureConfigInitialized(port)
         ensureAdminCreated(config.globalJumpIp, config.port)
         ensureHostKeyExists()
+        ensureServiceScriptExists()
     }
 
     /**
@@ -180,5 +181,112 @@ object DatabaseFactory {
         val bytes = ByteArray(64)
         SecureRandom().nextBytes(bytes)
         return bytes.toBase64()
+    }
+
+    /**
+     * Creates a bash script for systemd service installation if it doesn't exist.
+     */
+    private fun ensureServiceScriptExists() {
+        val scriptFile = File("kjump-service.sh")
+        if (scriptFile.exists()) return
+
+        val scriptContent = $$"""
+            #!/bin/bash
+            
+            # K-Jump Service Management Script
+            
+            SERVICE_NAME="kjump"
+            JAR_NAME="kjump_server.jar"
+            SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME.service"
+            WORKING_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
+            
+            if [[ $EUID -ne 0 ]]; then
+               echo "This script must be run as root (use sudo)"
+               exit 1
+            fi
+            
+            install() {
+                if [ ! -f "$WORKING_DIR/$JAR_NAME" ]; then
+                    echo "Error: $JAR_NAME not found in $WORKING_DIR"
+                    echo "Please ensure this script and $JAR_NAME are in the same directory."
+                    exit 1
+                fi
+            
+                echo "Creating systemd service file..."
+                
+                JAVA_PATH=$(which java)
+                if [ -z "$JAVA_PATH" ]; then
+                    JAVA_PATH="/usr/bin/java"
+                fi
+            
+                # Detect the actual user who is running sudo
+                ACTUAL_USER=${SUDO_USER:-$(logname || echo $USER)}
+            
+                cat <<EOF > $SERVICE_FILE
+            [Unit]
+            Description=K-Jump SSH Launcher Service
+            After=network.target
+            
+            [Service]
+            Type=simple
+            User=$ACTUAL_USER
+            WorkingDirectory=$WORKING_DIR
+            ExecStart=$JAVA_PATH -jar $WORKING_DIR/$JAR_NAME
+            Restart=always
+            
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+            
+                echo "Reloading systemd daemon..."
+                systemctl daemon-reload
+                echo "Enabling and starting $SERVICE_NAME..."
+                systemctl enable $SERVICE_NAME
+                systemctl start $SERVICE_NAME
+                
+                if systemctl is-active --quiet $SERVICE_NAME; then
+                    echo "Success: $SERVICE_NAME is now running."
+                else
+                    echo "Error: $SERVICE_NAME failed to start. Check 'journalctl -u $SERVICE_NAME'"
+                fi
+            }
+            
+            uninstall() {
+                echo "Stopping $SERVICE_NAME..."
+                systemctl stop $SERVICE_NAME
+                echo "Disabling $SERVICE_NAME..."
+                systemctl disable $SERVICE_NAME
+                
+                if [ -f "$SERVICE_FILE" ]; then
+                    echo "Removing $SERVICE_FILE..."
+                    rm "$SERVICE_FILE"
+                fi
+                
+                echo "Reloading systemd daemon..."
+                systemctl daemon-reload
+                echo "$SERVICE_NAME uninstalled successfully."
+            }
+            
+            case "$1" in
+                install)
+                    install
+                    ;;
+                uninstall)
+                    uninstall
+                    ;;
+                *)
+                    echo "Usage: $0 {install|uninstall}"
+                    exit 1
+                    ;;
+            esac
+        """.trimIndent()
+
+        try {
+            scriptFile.writeText(scriptContent)
+            scriptFile.setExecutable(true)
+            infoLog { "Service installation script created: kjump-service.sh" }
+        } catch (e: Exception) {
+            errorLog("Failed to create service installation script", e)
+        }
     }
 }
