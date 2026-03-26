@@ -68,7 +68,7 @@
     },
     {
       "id": "3:4856375601223397283",
-      "lastPropertyId": "6:7946483754743388704",
+      "lastPropertyId": "7:692554799238387991",
       "name": "User",
       "properties": [
         {
@@ -103,6 +103,11 @@
           "id": "6:7946483754743388704",
           "name": "createdAt",
           "type": 6
+        },
+        {
+          "id": "7:692554799238387991",
+          "name": "totpSecret",
+          "type": 9
         }
       ],
       "relations": []

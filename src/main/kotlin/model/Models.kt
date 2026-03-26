@@ -16,6 +16,7 @@ data class User(
     var hashedToken: String = "",
     var salt: String = "",
     var isAdmin: Boolean = false,
+    var totpSecret: String = "",
     var createdAt: Long = System.currentTimeMillis()
 )
 
@@ -49,7 +50,7 @@ data class SystemConfig(
  * DTO for login requests.
  */
 @Serializable
-data class LoginRequest(val token: String)
+data class LoginRequest(val token: String, val totpCode: String)
 
 /**
  * DTO for login responses.

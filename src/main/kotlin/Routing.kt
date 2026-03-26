@@ -6,6 +6,7 @@ import bayern.kickner.klogger.errorLog
 import bayern.kickner.klogger.infoLog
 import bayern.kickner.klogger.warnLog
 import bayern.kickner.model.*
+import bayern.kickner.totp.Totp
 import bayern.kickner.utils.EncryptionUtils
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -37,6 +38,17 @@ fun Application.configureRouting() {
                 val user = userBox.query(User_.hashedToken.equal(hashedToken)).build().findFirstAndClose()
 
                 if (user != null) {
+                    if (user.totpSecret.isNotBlank() && !Totp.verifyCode(
+                            user.totpSecret,
+                            request.totpCode,
+                            window = 0
+                        )
+                    ) {
+                        warnLog { "Invalid TOTP code for user: ${user.username}" }
+                        call.respond(HttpStatusCode.Unauthorized, "Invalid TOTP code")
+                        return@post
+                    }
+
                     val config = DatabaseFactory.systemConfigBox.all.firstOrNull()
                     if (config != null) {
                         infoLog { "Login successful for user: ${user.username}" }

@@ -6,6 +6,7 @@ import bayern.kickner.model.MyObjectBox
 import bayern.kickner.model.ServerEntryEntity
 import bayern.kickner.model.SystemConfig
 import bayern.kickner.model.User
+import bayern.kickner.totp.Totp
 import io.objectbox.Box
 import io.objectbox.BoxStore
 import kotnexlib.crypto.hashBC
@@ -134,10 +135,12 @@ object DatabaseFactory {
             infoLog { "No users found in database. Performing first-time setup..." }
 
             val adminToken = generateSecureToken()
+            val totpSecret = Totp.generateSecret()
             val admin = User(
                 username = "admin",
                 hashedToken = adminToken.hashBC(),
-                isAdmin = true
+                isAdmin = true,
+                totpSecret = totpSecret
             )
             userBox.put(admin)
 
@@ -145,6 +148,7 @@ object DatabaseFactory {
             println("INITIAL SETUP: Admin user created successfully!")
             println("Username: admin")
             println("Initial Token: $adminToken")
+            println("TOTP Secret: $totpSecret")
             println("Combined Token for login: ${("$hostIp€$adminToken").toBase64()}") //Used so you only need one token to login!
             println("This is the token you will need to login to the server.")
             println("PLEASE SAVE THIS TOKEN! You will need it to login.")

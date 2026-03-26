@@ -233,10 +233,17 @@ suspend fun login() {
             .let { "http://" + it[0] + ":8090" to it[1] } //ToDo: Default muss nach der Entwicklung HTTPS sein.
     }
 
+    print("TOTP Code: ")
+    val totpCode = readln().trim()
+    if (totpCode.toIntOrNull() == null) {
+        println("Invalid TOTP Code")
+        return login()
+    }
+
     val response = try {
         client.post("$host/auth/login") {
             contentType(ContentType.Application.Json)
-            setBody(LoginRequest(token.trim()))
+            setBody(LoginRequest(token.trim(), totpCode))
         }
     } catch (e: Exception) {
         println("Error connecting to server for login: ${e.message}")
@@ -251,6 +258,6 @@ suspend fun login() {
         println("Login successful!")
     } else {
         println("Login failed: ${response.status} - ${response.bodyAsText()}")
-        exitProcess(1)
+        login()
     }
 }
