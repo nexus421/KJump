@@ -46,6 +46,7 @@ fun Application.module() {
     }
     infoLog { "Loading application modules..." }
     DatabaseFactory.init()
+    DatabaseFactory.startCleanupTask(this)
     configureAdministration()
     configureSerialization()
     configureRouting()

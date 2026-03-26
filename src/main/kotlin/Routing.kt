@@ -43,14 +43,14 @@ fun Application.configureRouting() {
                             request.totpCode
                         )
                     ) {
-                        warnLog { "Invalid TOTP code for user: ${user.username}" }
+                        warnLog { "Invalid TOTP code for user." }
                         call.respond(HttpStatusCode.Unauthorized, "Invalid TOTP code")
                         return@post
                     }
 
                     val config = DatabaseFactory.systemConfigBox.all.firstOrNull()
                     if (config != null) {
-                        infoLog { "Login successful for user: ${user.username}" }
+                        infoLog { "Login successful." }
                         call.respond(LoginResponse(config.apiToken))
                     } else {
                         warnLog { "System configuration missing during login" }

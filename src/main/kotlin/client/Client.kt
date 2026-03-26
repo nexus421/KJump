@@ -202,8 +202,9 @@ suspend fun startSsh(server: ServerEntry, token: String) = coroutineScope {
     }
 
     // The command to run on the jump host: connect to target and ensure the target temp key is deleted afterwards
+    // We use trap to ensure deletion even if the SSH process is interrupted
     val remoteCommand =
-        "ssh -tt -o StrictHostKeyChecking=accept-new -i ${prep.remoteKeyPath} -p ${prep.targetPort} ${prep.targetUser}@${prep.targetIp}; rm -v ${prep.remoteKeyPath}"
+        "trap 'rm -f ${prep.remoteKeyPath}' EXIT; ssh -tt -o StrictHostKeyChecking=accept-new -i ${prep.remoteKeyPath} -p ${prep.targetPort} ${prep.targetUser}@${prep.targetIp}"
 
     val pb = ProcessBuilder(
         "ssh",

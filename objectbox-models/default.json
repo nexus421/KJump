@@ -83,26 +83,9 @@
           "flags": 1
         },
         {
-          "id": "2:3898183798079649669",
-          "name": "username",
-          "indexId": "1:1846974586992588713",
-          "type": 9,
-          "flags": 2048
-        },
-        {
           "id": "3:5346613388077085070",
           "name": "hashedToken",
           "type": 9
-        },
-        {
-          "id": "4:5883957669071616109",
-          "name": "salt",
-          "type": 9
-        },
-        {
-          "id": "5:6497132390314662104",
-          "name": "isAdmin",
-          "type": 1
         },
         {
           "id": "6:7946483754743388704",
@@ -125,8 +108,14 @@
   "modelVersion": 5,
   "modelVersionParserMinimum": 5,
   "retiredEntityUids": [],
-  "retiredIndexUids": [],
-  "retiredPropertyUids": [],
+  "retiredIndexUids": [
+    1846974586992588713
+  ],
+  "retiredPropertyUids": [
+    3898183798079649669,
+    5883957669071616109,
+    6497132390314662104
+  ],
   "retiredRelationUids": [],
   "version": 1
 }

@@ -9,10 +9,13 @@ import bayern.kickner.model.User
 import bayern.kickner.totp.Totp
 import io.objectbox.Box
 import io.objectbox.BoxStore
+import kotlinx.coroutines.*
 import kotnexlib.crypto.hashBC
 import kotnexlib.toBase64
 import java.io.File
 import java.security.SecureRandom
+import java.util.concurrent.TimeUnit
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * Handles database initialization and maintenance using ObjectBox.
@@ -153,16 +156,13 @@ object DatabaseFactory {
             val adminToken = generateSecureToken()
             val totpSecret = Totp.generateSecret()
             val admin = User(
-                username = "admin",
                 hashedToken = adminToken.hashBC(),
-                isAdmin = true,
                 totpSecret = totpSecret
             )
             userBox.put(admin)
 
             println("\n" + "=".repeat(60))
-            println("INITIAL SETUP: Admin user created successfully!")
-            println("Username: admin")
+            println("INITIAL SETUP: User created successfully!")
             println("Initial Token: $adminToken")
             println("TOTP Secret: $totpSecret")
             println("Combined Token for login: ${("$hostIp:$port€$adminToken").toBase64()}") //Used so you only need one token to login!
@@ -170,7 +170,7 @@ object DatabaseFactory {
             println("PLEASE SAVE THIS TOKEN! You will need it to login.")
             println("=".repeat(60) + "\n")
 
-            infoLog { "Initial admin user created successfully." }
+            infoLog { "Initial user created successfully." }
         }
     }
 
@@ -181,6 +181,31 @@ object DatabaseFactory {
         val bytes = ByteArray(64)
         SecureRandom().nextBytes(bytes)
         return bytes.toBase64()
+    }
+
+    /**
+     * Starts a background task to clean up old temporary SSH key files.
+     */
+    fun startCleanupTask(scope: CoroutineScope) {
+        scope.launch(Dispatchers.IO) {
+            while (isActive) {
+                try {
+                    val tempDir = File(System.getProperty("java.io.tmpdir"))
+                    val now = System.currentTimeMillis()
+                    val files = tempDir.listFiles { _, name -> name.startsWith("kjump_ssh_") && name.endsWith(".key") }
+                    files?.forEach { file ->
+                        if (now - file.lastModified() > TimeUnit.MINUTES.toMillis(5)) {
+                            if (file.delete()) {
+                                infoLog { "Cleaned up old temporary SSH key file: ${file.name}" }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    errorLog("Error during temp file cleanup", e)
+                }
+                delay(10.minutes)
+            }
+        }
     }
 
     /**

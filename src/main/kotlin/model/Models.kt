@@ -2,7 +2,6 @@ package bayern.kickner.model
 
 import io.objectbox.annotation.Entity
 import io.objectbox.annotation.Id
-import io.objectbox.annotation.Index
 import kotlinx.serialization.Serializable
 
 /**
@@ -12,10 +11,7 @@ import kotlinx.serialization.Serializable
 @Entity
 data class User(
     @Id var id: Long = 0,
-    @Index var username: String = "",
     var hashedToken: String = "",
-    var salt: String = "",
-    var isAdmin: Boolean = false,
     var totpSecret: String = "",
     var createdAt: Long = System.currentTimeMillis()
 )
