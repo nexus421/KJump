@@ -10,10 +10,12 @@ import bayern.kickner.totp.Totp
 import bayern.kickner.utils.EncryptionUtils
 import io.ktor.http.*
 import io.ktor.server.application.*
+import io.ktor.server.html.*
 import io.ktor.server.http.content.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import kotlinx.html.*
 import kotnexlib.crypto.hashBC
 import kotnexlib.external.objectbox.findFirstAndClose
 import kotnexlib.isNotNullOrBlank
@@ -27,6 +29,10 @@ import java.nio.file.attribute.PosixFilePermissions
  * Includes endpoints for fetching the vault, adding servers, and client downloads.
  */
 fun Application.configureRouting() {
+    val clientDir = File("client")
+    if (!clientDir.exists()) {
+        clientDir.mkdirs()
+    }
     routing {
         post("/auth/login") {
             try {
@@ -178,7 +184,165 @@ fun Application.configureRouting() {
         staticFiles("/download", File("clients")) {
             default("kj-client.jar")
         }
+
+        get("/client") {
+            val dir = File("client")
+            if (!dir.exists()) dir.mkdirs()
+
+            val files = dir.listFiles()?.filter { it.isFile } ?: emptyList()
+            val jars = files.filter { it.name.endsWith(".jar", true) }
+            val natives = files.filter { !it.name.contains(".") }
+
+            val config = DatabaseFactory.systemConfigBox.all.firstOrNull()
+            val secret = config?.apiToken ?: "default-secret"
+            val a = (1..10).random()
+            val b = (1..10).random()
+            val ts = System.currentTimeMillis()
+            val token = "$ts:${a + b}:$secret".hashBC()
+
+            call.respondHtml {
+                head {
+                    title { +"KJump Client Download" }
+                    style {
+                        +".hp { display: none; }"
+                    }
+                }
+                body {
+                    h1 { +"KJump Client Download" }
+                    p { +"Wählen Sie den gewünschten Client-Typ zum Herunterladen aus:" }
+
+                    if (jars.size > 1) {
+                        p {
+                            style = "color: orange; font-weight: bold;"
+                            +"Warnung: Mehr als eine JAR-Datei im 'client' Ordner gefunden. Die erste wird verwendet (${jars.first().name})."
+                        }
+                    }
+                    if (natives.size > 1) {
+                        p {
+                            style = "color: orange; font-weight: bold;"
+                            +"Warnung: Mehr als eine Native-Datei im 'client' Ordner gefunden. Die erste wird verwendet (${natives.first().name})."
+                        }
+                    }
+
+                    form(action = "/client/download", method = FormMethod.post) {
+                        div {
+                            style = "margin-bottom: 10px;"
+                            +"Bitte lösen Sie diese Aufgabe: $a + $b = "
+                            input(type = InputType.number, name = "answer") {
+                                attributes["required"] = "true"
+                            }
+                        }
+
+                        // Honeypot
+                        input(type = InputType.text, name = "email") {
+                            classes = setOf("hp")
+                        }
+
+                        // Hidden data
+                        input(type = InputType.hidden, name = "ts") {
+                            value = ts.toString()
+                        }
+                        input(type = InputType.hidden, name = "token") {
+                            value = token
+                        }
+
+                        div {
+                            if (jars.isEmpty()) {
+                                p {
+                                    style = "color: red;"
+                                    +"Fehler: Keine JAR-Datei gefunden."
+                                }
+                            } else {
+                                button(type = ButtonType.submit) {
+                                    name = "type"
+                                    value = "jar"
+                                    +"JAR Herunterladen (${jars.first().name})"
+                                }
+                            }
+                        }
+
+                        br { }
+
+                        div {
+                            if (natives.isEmpty()) {
+                                p {
+                                    style = "color: red;"
+                                    +"Fehler: Keine Native-Datei gefunden."
+                                }
+                            } else {
+                                button(type = ButtonType.submit) {
+                                    name = "type"
+                                    value = "native"
+                                    +"Native Herunterladen (${natives.first().name})"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        get("/client/download/jar") {
+            call.respond(HttpStatusCode.MethodNotAllowed, "Please use the download form at /client")
+        }
+
+        get("/client/download/native") {
+            call.respond(HttpStatusCode.MethodNotAllowed, "Please use the download form at /client")
+        }
+
+        post("/client/download") {
+            val params = call.receiveParameters()
+            val config = DatabaseFactory.systemConfigBox.all.firstOrNull()
+            val secret = config?.apiToken ?: "default-secret"
+
+            val error = validateBotProtection(params, secret)
+            if (error != null) {
+                call.respond(HttpStatusCode.Forbidden, error)
+                return@post
+            }
+
+            val type = params["type"] ?: "jar"
+            val dir = File("client")
+            val file = if (type == "jar") {
+                dir.listFiles()?.filter { it.isFile && it.name.endsWith(".jar", true) }?.firstOrNull()
+            } else {
+                dir.listFiles()?.filter { it.isFile && !it.name.contains(".") }?.firstOrNull()
+            }
+
+            if (file != null && file.exists()) {
+                call.response.header(
+                    HttpHeaders.ContentDisposition,
+                    ContentDisposition.Attachment.withParameter(ContentDisposition.Parameters.FileName, file.name)
+                        .toString()
+                )
+                call.respondFile(file)
+            } else {
+                call.respond(HttpStatusCode.NotFound, "$type file not found.")
+            }
+        }
     }
+}
+
+private fun validateBotProtection(params: Parameters, secret: String): String? {
+    val honeypot = params["email"]
+    if (!honeypot.isNullOrEmpty()) return "Bot detected (honeypot)"
+
+    val tsStr = params["ts"] ?: return "Missing timestamp"
+    val token = params["token"] ?: return "Missing token"
+    val answerStr = params["answer"] ?: return "Missing answer"
+
+    val ts = tsStr.toLongOrNull() ?: return "Invalid timestamp"
+    val currentTime = System.currentTimeMillis()
+
+    if (currentTime - ts < 2000) return "You are too fast! (Bot protection)"
+    if (currentTime - ts > 10 * 60 * 1000) return "Session expired. Please refresh."
+
+    val answer = answerStr.toIntOrNull() ?: return "Invalid answer format"
+    val expectedHash = "$ts:$answer:$secret".hashBC()
+
+    if (token != expectedHash) return "Incorrect math answer"
+
+    return null
 }
 
 /**
