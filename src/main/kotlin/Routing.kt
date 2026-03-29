@@ -104,38 +104,6 @@ fun Application.configureRouting() {
             }
         }
 
-//        get("/config") {
-//            if (verifyApiToken(call).not()) return@get call.respond(HttpStatusCode.Unauthorized, "Invalid API Token")
-//            val configBox = DatabaseFactory.store.boxFor(SystemConfig::class.java)
-//            val config = configBox.all.firstOrNull() ?: return@get call.respond(
-//                HttpStatusCode.NotFound,
-//                "No configuration found"
-//            )
-//            call.respond(config)
-//        }
-//
-//        post("/config") {
-//            if (verifyApiToken(call).not()) return@post call.respond(HttpStatusCode.Unauthorized, "Invalid API Token")
-//            try {
-//                val newConfig = call.receive<SystemConfig>()
-//                val configBox = DatabaseFactory.store.boxFor(SystemConfig::class.java)
-//                val existingConfig = configBox.all.firstOrNull()
-//                if (existingConfig != null) {
-//                    newConfig.id = existingConfig.id
-//                    // Wenn das API-Token im Request leer ist, behalte das alte bei
-//                    if (newConfig.apiToken.isBlank()) {
-//                        newConfig.apiToken = existingConfig.apiToken
-//                    }
-//                }
-//                configBox.put(newConfig)
-//                infoLog { "System configuration updated." }
-//                call.respond(HttpStatusCode.OK, "Configuration updated")
-//            } catch (e: Exception) {
-//                errorLog("Failed to update config", e)
-//                call.respond(HttpStatusCode.BadRequest, "Invalid data: ${e.message}")
-//            }
-//        }
-
         post("/prepare") {
             if (verifyApiToken(call).not()) return@post call.respond(HttpStatusCode.Unauthorized, "Invalid API Token")
 
@@ -200,80 +168,154 @@ fun Application.configureRouting() {
             val ts = System.currentTimeMillis()
             val token = "$ts:${a + b}:$secret".hashBC()
 
+            val msg = Messages(call.isGerman())
+
             call.respondHtml {
                 head {
-                    title { +"KJump Client Download" }
+                    title { +msg.title }
                     style {
-                        +".hp { display: none; }"
+                        unsafe {
+                            +"""
+                        body {
+                            background-color: #121212;
+                            color: #e0e0e0;
+                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            min-height: 100vh;
+                            margin: 0;
+                        }
+                        .container {
+                            background-color: #1e1e1e;
+                            padding: 2rem;
+                            border-radius: 8px;
+                            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+                            max-width: 500px;
+                            width: 100%;
+                            text-align: center;
+                        }
+                        h1 { color: #ffffff; margin-bottom: 1.5rem; }
+                        p { line-height: 1.6; margin-bottom: 1.5rem; }
+                        .warning {
+                            background-color: rgba(255, 165, 0, 0.1);
+                            border: 1px solid orange;
+                            color: orange;
+                            padding: 10px;
+                            border-radius: 4px;
+                            margin-bottom: 1rem;
+                            font-weight: bold;
+                        }
+                        .error {
+                            background-color: rgba(255, 0, 0, 0.1);
+                            border: 1px solid #f44336;
+                            color: #f44336;
+                            padding: 10px;
+                            border-radius: 4px;
+                            margin-bottom: 1rem;
+                        }
+                        .math-box {
+                            background-color: #2d2d2d;
+                            padding: 1rem;
+                            border-radius: 4px;
+                            margin-bottom: 1.5rem;
+                        }
+                        input[type="number"] {
+                            background-color: #333;
+                            border: 1px solid #444;
+                            color: #fff;
+                            padding: 8px;
+                            border-radius: 4px;
+                            width: 60px;
+                            margin-left: 10px;
+                        }
+                        button {
+                            background-color: #2196f3;
+                            color: white;
+                            border: none;
+                            padding: 12px 24px;
+                            border-radius: 4px;
+                            cursor: pointer;
+                            font-size: 1rem;
+                            font-weight: bold;
+                            transition: background-color 0.3s;
+                            width: 100%;
+                            margin-bottom: 10px;
+                        }
+                        button:hover {
+                            background-color: #1976d2;
+                        }
+                        button:disabled {
+                            background-color: #555;
+                            cursor: not-allowed;
+                        }
+                        .hp { display: none; }
+                        """.trimIndent()
+                        }
                     }
                 }
                 body {
-                    h1 { +"KJump Client Download" }
-                    p { +"Wählen Sie den gewünschten Client-Typ zum Herunterladen aus:" }
+                    div(classes = "container") {
+                        h1 { +msg.title }
+                        p { +msg.desc }
 
-                    if (jars.size > 1) {
-                        p {
-                            style = "color: orange; font-weight: bold;"
-                            +"Warnung: Mehr als eine JAR-Datei im 'client' Ordner gefunden. Die erste wird verwendet (${jars.first().name})."
+                        if (jars.size > 1) {
+                            div(classes = "warning") {
+                                +"${msg.warnJar} (${jars.first().name})."
+                            }
                         }
-                    }
-                    if (natives.size > 1) {
-                        p {
-                            style = "color: orange; font-weight: bold;"
-                            +"Warnung: Mehr als eine Native-Datei im 'client' Ordner gefunden. Die erste wird verwendet (${natives.first().name})."
-                        }
-                    }
-
-                    form(action = "/client/download", method = FormMethod.post) {
-                        div {
-                            style = "margin-bottom: 10px;"
-                            +"Bitte lösen Sie diese Aufgabe: $a + $b = "
-                            input(type = InputType.number, name = "answer") {
-                                attributes["required"] = "true"
+                        if (natives.size > 1) {
+                            div(classes = "warning") {
+                                +"${msg.warnNative} (${natives.first().name})."
                             }
                         }
 
-                        // Honeypot
-                        input(type = InputType.text, name = "email") {
-                            classes = setOf("hp")
-                        }
-
-                        // Hidden data
-                        input(type = InputType.hidden, name = "ts") {
-                            value = ts.toString()
-                        }
-                        input(type = InputType.hidden, name = "token") {
-                            value = token
-                        }
-
-                        div {
-                            if (jars.isEmpty()) {
-                                p {
-                                    style = "color: red;"
-                                    +"Fehler: Keine JAR-Datei gefunden."
-                                }
-                            } else {
-                                button(type = ButtonType.submit) {
-                                    name = "type"
-                                    value = "jar"
-                                    +"JAR Herunterladen (${jars.first().name})"
+                        form(action = "/client/download", method = FormMethod.post) {
+                            div(classes = "math-box") {
+                                +"${msg.mathTask}: $a + $b = "
+                                input(type = InputType.number, name = "answer") {
+                                    attributes["required"] = "true"
                                 }
                             }
-                        }
 
-                        br { }
+                            // Honeypot
+                            input(type = InputType.text, name = "email") {
+                                classes = setOf("hp")
+                            }
 
-                        div {
-                            if (natives.isEmpty()) {
-                                p {
-                                    style = "color: red;"
-                                    +"Fehler: Keine Native-Datei gefunden."
+                            // Hidden data
+                            input(type = InputType.hidden, name = "ts") {
+                                value = ts.toString()
+                            }
+                            input(type = InputType.hidden, name = "token") {
+                                value = token
+                            }
+
+                            div {
+                                if (jars.isEmpty()) {
+                                    div(classes = "error") {
+                                        +msg.errorNoJar
+                                    }
+                                } else {
+                                    button(type = ButtonType.submit) {
+                                        name = "type"
+                                        value = "jar"
+                                        +"${msg.downloadJar} (${jars.first().name})"
+                                    }
                                 }
-                            } else {
-                                button(type = ButtonType.submit) {
-                                    name = "type"
-                                    value = "native"
-                                    +"Native Herunterladen (${natives.first().name})"
+                            }
+
+                            div {
+                                if (natives.isEmpty()) {
+                                    div(classes = "error") {
+                                        +msg.errorNoNative
+                                    }
+                                } else {
+                                    button(type = ButtonType.submit) {
+                                        name = "type"
+                                        value = "native"
+                                        +"${msg.downloadNative} (${natives.first().name})"
+                                    }
                                 }
                             }
                         }
@@ -282,20 +324,13 @@ fun Application.configureRouting() {
             }
         }
 
-        get("/client/download/jar") {
-            call.respond(HttpStatusCode.MethodNotAllowed, "Please use the download form at /client")
-        }
-
-        get("/client/download/native") {
-            call.respond(HttpStatusCode.MethodNotAllowed, "Please use the download form at /client")
-        }
-
         post("/client/download") {
             val params = call.receiveParameters()
+            val msg = Messages(call.isGerman())
             val config = DatabaseFactory.systemConfigBox.all.firstOrNull()
             val secret = config?.apiToken ?: "default-secret"
 
-            val error = validateBotProtection(params, secret)
+            val error = validateBotProtection(params, secret, msg)
             if (error != null) {
                 call.respond(HttpStatusCode.Forbidden, error)
                 return@post
@@ -304,9 +339,9 @@ fun Application.configureRouting() {
             val type = params["type"] ?: "jar"
             val dir = File("client")
             val file = if (type == "jar") {
-                dir.listFiles()?.filter { it.isFile && it.name.endsWith(".jar", true) }?.firstOrNull()
+                dir.listFiles()?.firstOrNull { it.isFile && it.name.endsWith(".jar", true) }
             } else {
-                dir.listFiles()?.filter { it.isFile && !it.name.contains(".") }?.firstOrNull()
+                dir.listFiles()?.firstOrNull { it.isFile && !it.name.contains(".") }
             }
 
             if (file != null && file.exists()) {
@@ -317,32 +352,61 @@ fun Application.configureRouting() {
                 )
                 call.respondFile(file)
             } else {
-                call.respond(HttpStatusCode.NotFound, "$type file not found.")
+                call.respond(HttpStatusCode.NotFound, "${msg.fileNotFound}: $type")
             }
         }
     }
 }
 
-private fun validateBotProtection(params: Parameters, secret: String): String? {
+private fun validateBotProtection(params: Parameters, secret: String, msg: Messages): String? {
     val honeypot = params["email"]
-    if (!honeypot.isNullOrEmpty()) return "Bot detected (honeypot)"
+    if (honeypot.isNullOrEmpty().not()) return msg.botHoneypot
 
-    val tsStr = params["ts"] ?: return "Missing timestamp"
-    val token = params["token"] ?: return "Missing token"
-    val answerStr = params["answer"] ?: return "Missing answer"
+    val tsStr = params["ts"] ?: return msg.missingTs
+    val token = params["token"] ?: return msg.missingToken
+    val answerStr = params["answer"] ?: return msg.missingAnswer
 
-    val ts = tsStr.toLongOrNull() ?: return "Invalid timestamp"
+    val ts = tsStr.toLongOrNull() ?: return msg.invalidTs
     val currentTime = System.currentTimeMillis()
 
-    if (currentTime - ts < 2000) return "You are too fast! (Bot protection)"
-    if (currentTime - ts > 10 * 60 * 1000) return "Session expired. Please refresh."
+    if (currentTime - ts < 2000) return msg.tooFast
+    if (currentTime - ts > 10 * 60 * 1000) return msg.sessionExpired
 
-    val answer = answerStr.toIntOrNull() ?: return "Invalid answer format"
+    val answer = answerStr.toIntOrNull() ?: return msg.invalidAnswerFormat
     val expectedHash = "$ts:$answer:$secret".hashBC()
 
-    if (token != expectedHash) return "Incorrect math answer"
+    if (token != expectedHash) return msg.incorrectAnswer
 
     return null
+}
+
+private fun ApplicationCall.isGerman() = request.headers["Accept-Language"]?.startsWith("de", true) == true
+
+private class Messages(val isDe: Boolean) {
+    val title = "KJump Client Download"
+    val desc =
+        if (isDe) "Wähle  den gewünschten Client-Typ zum Herunterladen aus:" else "Select the desired client type for download:"
+    val warnJar =
+        if (isDe) "Warnung: Mehr als eine JAR-Datei im 'client' Ordner gefunden. Die erste wird verwendet" else "Warning: More than one JAR file found in 'client' folder. The first one will be used"
+    val warnNative =
+        if (isDe) "Warnung: Mehr als eine Native-Datei im 'client' Ordner gefunden. Die erste wird verwendet" else "Warning: More than one native file found in 'client' folder. The first one will be used"
+    val mathTask = if (isDe) "Bitte löse diese Aufgabe" else "Please solve this task"
+    val errorNoJar = if (isDe) "Fehler: Keine JAR-Datei gefunden." else "Error: No JAR file found."
+    val errorNoNative = if (isDe) "Fehler: Keine Native-Datei gefunden." else "Error: No native file found."
+    val downloadJar = if (isDe) "JAR Herunterladen" else "Download JAR"
+    val downloadNative = if (isDe) "Native Herunterladen" else "Download Native"
+
+    // Bot protection messages
+    val botHoneypot = if (isDe) "Bot erkannt" else "Bot detected"
+    val missingTs = if (isDe) "Zeitstempel fehlt" else "Missing timestamp"
+    val missingToken = if (isDe) "Token fehlt" else "Missing token"
+    val missingAnswer = if (isDe) "Antwort fehlt" else "Missing answer"
+    val invalidTs = if (isDe) "Ungültiger Zeitstempel" else "Invalid timestamp"
+    val tooFast = if (isDe) "Zu schnell! (Bot-Schutz)" else "You are too fast! (Bot protection)"
+    val sessionExpired = if (isDe) "Sitzung abgelaufen. Bitte Seite neu laden." else "Session expired. Please refresh."
+    val invalidAnswerFormat = if (isDe) "Ungültiges Antwortformat" else "Invalid answer format"
+    val incorrectAnswer = if (isDe) "Falsches Ergebnis" else "Incorrect math answer"
+    val fileNotFound = if (isDe) "Datei nicht gefunden" else "File not found"
 }
 
 /**
